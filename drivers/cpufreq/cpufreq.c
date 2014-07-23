@@ -505,15 +505,8 @@ static ssize_t show_bios_limit(struct cpufreq_policy *policy, char *buf)
 	return sprintf(buf, "%u\n", policy->cpuinfo.max_freq);
 }
 
-<<<<<<< HEAD
-#ifdef CONFIG_MSM_CPU_VOLTAGE_CONTROL
-extern ssize_t show_UV_mV_table(struct cpufreq_policy *policy,
-				char *buf);
-
-=======
 #ifdef CONFIG_CPU_VOLTAGE_TABLE
 extern ssize_t show_UV_mV_table(struct cpufreq_policy *policy, char *buf);
->>>>>>> 2b266ba... Voltage Control: generic voltage control for DTS based kernels
 extern ssize_t store_UV_mV_table(struct cpufreq_policy *policy,
 				 const char *buf, size_t count);
 #endif
@@ -535,9 +528,6 @@ cpufreq_freq_attr_rw(UV_mV_table);
 cpufreq_freq_attr_rw(scaling_max_freq);
 cpufreq_freq_attr_rw(scaling_governor);
 cpufreq_freq_attr_rw(scaling_setspeed);
-#ifdef CONFIG_MSM_CPU_VOLTAGE_CONTROL
-cpufreq_freq_attr_rw(UV_mV_table);
-#endif
 
 static struct attribute *default_attrs[] = {
 	&cpuinfo_min_freq.attr,
@@ -551,11 +541,7 @@ static struct attribute *default_attrs[] = {
 	&scaling_driver.attr,
 	&scaling_available_governors.attr,
 	&scaling_setspeed.attr,
-<<<<<<< HEAD
-#ifdef CONFIG_MSM_CPU_VOLTAGE_CONTROL
-=======
 #ifdef CONFIG_CPU_VOLTAGE_TABLE
->>>>>>> 2b266ba... Voltage Control: generic voltage control for DTS based kernels
 	&UV_mV_table.attr,
 #endif
 	NULL
@@ -682,7 +668,6 @@ static int cpufreq_add_dev_policy(unsigned int cpu,
 	pr_debug("Restoring CPU%d min %d and max %d\n",
 		cpu, policy->min, policy->max);
 #endif
-
 	for_each_cpu(j, policy->cpus) {
 		struct cpufreq_policy *managed_policy;
 
@@ -890,10 +875,15 @@ static int cpufreq_add_dev(struct device *dev, struct subsys_interface *sif)
 #ifdef CONFIG_HOTPLUG_CPU
 	for_each_online_cpu(sibling) {
 		struct cpufreq_policy *cp = per_cpu(cpufreq_cpu_data, sibling);
-		if (cp && cp->governor &&
-		    (cpumask_test_cpu(cpu, cp->related_cpus))) {
+		if (cp && cp->governor) {
 			policy->governor = cp->governor;
+			policy->min = cp->min;
+			policy->max = cp->max;
+			policy->user_policy.min = cp->user_policy.min;
+			policy->user_policy.max = cp->user_policy.max;
+
 			found = 1;
+			//pr_info("sibling: found sibling!\n");
 			break;
 		}
 	}
@@ -1503,8 +1493,7 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 	memcpy(&policy->cpuinfo, &data->cpuinfo,
 				sizeof(struct cpufreq_cpuinfo));
 
-	if (policy->min > data->user_policy.max
-		|| policy->max < data->user_policy.min) {
+	if (policy->min > data->max || policy->max < data->min) {
 		ret = -EINVAL;
 		goto error_out;
 	}

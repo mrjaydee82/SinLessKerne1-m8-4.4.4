@@ -2468,17 +2468,6 @@ static const struct snd_kcontrol_new aif_cap_mixer[] = {
 			slim_tx_mixer_get, slim_tx_mixer_put),
 };
 
-static void taiko_codec_mute_st_gain(struct snd_soc_codec *codec,
-					int mute_en)
-{
-	pr_debug("%s %d\n", __func__, mute_en);
-
-	if (mute_en)
-		snd_soc_write(codec, TAIKO_A_CDC_IIR1_GAIN_B1_CTL, 0xAC);
-	else
-		snd_soc_write(codec, TAIKO_A_CDC_IIR1_GAIN_B1_CTL, 0xE2);
-}
-
 static void taiko_codec_enable_adc_block(struct snd_soc_codec *codec,
 					 int enable)
 {
@@ -2572,8 +2561,6 @@ static int taiko_codec_enable_adc(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		taiko_codec_enable_adc_block(codec, 0);
-		usleep_range(70000, 70000);
-		taiko_codec_mute_st_gain(codec, 0);
 		break;
 	}
 	return 0;
@@ -4281,16 +4268,17 @@ static int taiko_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 	return 0;
 }
 
-<<<<<<< HEAD
-static int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
-	unsigned int value)
-=======
+#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
+extern int snd_hax_reg_access(unsigned int);
+extern unsigned int snd_hax_cache_read(unsigned int);
+extern void snd_hax_cache_write(unsigned int, unsigned int);
+#endif
+
 #ifndef CONFIG_SOUND_CONTROL_HAX_3_GPL 
 static
 #endif
 unsigned int taiko_read(struct snd_soc_codec *codec,
 				unsigned int reg)
->>>>>>> b9706c6... Sound Control: (Optional) work around for Nexus 4/5 audio issues
 {
 	unsigned int val;
 	int ret;
@@ -4314,16 +4302,8 @@ unsigned int taiko_read(struct snd_soc_codec *codec,
 	val = wcd9xxx_reg_read(&wcd9xxx->core_res, reg);
 	return val;
 }
-<<<<<<< HEAD
-static unsigned int taiko_read(struct snd_soc_codec *codec,
-				unsigned int reg)
-=======
 #ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
 EXPORT_SYMBOL(taiko_read);
-#endif
-
-#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
-extern int reg_access(unsigned int);
 #endif
 
 #ifndef CONFIG_SOUND_CONTROL_HAX_3_GPL
@@ -4331,7 +4311,6 @@ static
 #endif
 int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
 	unsigned int value)
->>>>>>> b9706c6... Sound Control: (Optional) work around for Nexus 4/5 audio issues
 {
 	int ret;
 #ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
@@ -4353,21 +4332,22 @@ int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
 	}
 
 #ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
-	if (!reg_access(reg))
-		val = wcd9xxx_reg_read_safe(codec->control_data, reg);
-	else
+	if (!snd_hax_reg_access(reg)) {
+		if (!((val = snd_hax_cache_read(reg)) != -1)) {
+			val = wcd9xxx_reg_read_safe(codec->control_data, reg);
+		}
+	} else {
+		snd_hax_cache_write(reg, value);
 		val = value;
+	}
 	return wcd9xxx_reg_write(&wcd9xxx->core_res, reg, val);
 #else
 	return wcd9xxx_reg_write(&wcd9xxx->core_res, reg, value);
 #endif
 }
-<<<<<<< HEAD
-=======
 #ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
 EXPORT_SYMBOL(taiko_write);
 #endif
->>>>>>> b9706c6... Sound Control: (Optional) work around for Nexus 4/5 audio issues
 
 static int taiko_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
@@ -5307,9 +5287,6 @@ static int taiko_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 					      dai->rate, dai->bit_width,
 					      &dai->grph);
 		break;
-	case SND_SOC_DAPM_PRE_PMD:
-		taiko_codec_mute_st_gain(codec, 1);
-		break;
 	case SND_SOC_DAPM_POST_PMD:
 		ret = wcd9xxx_close_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
 						dai->grph);
@@ -5791,18 +5768,15 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 
 	SND_SOC_DAPM_AIF_OUT_E("AIF1 CAP", "AIF1 Capture", 0, SND_SOC_NOPM,
 		AIF1_CAP, 0, taiko_codec_enable_slimtx,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_AIF_OUT_E("AIF2 CAP", "AIF2 Capture", 0, SND_SOC_NOPM,
 		AIF2_CAP, 0, taiko_codec_enable_slimtx,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_AIF_OUT_E("AIF3 CAP", "AIF3 Capture", 0, SND_SOC_NOPM,
 		AIF3_CAP, 0, taiko_codec_enable_slimtx,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_AIF_OUT_E("AIF4 VI", "VIfeed", 0, SND_SOC_NOPM,
 		AIF4_VIFEED, 0, taiko_codec_enable_slimvi_feedback,
@@ -6870,8 +6844,8 @@ static const struct snd_soc_dapm_widget taiko_1_dapm_widgets[] = {
 			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_ADC_E("ADC2", NULL, TAIKO_A_TX_1_2_EN, 3, 0,
 			   taiko_codec_enable_adc,
-			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
-			   SND_SOC_DAPM_POST_PMD),
+			   SND_SOC_DAPM_PRE_PMU |
+			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_ADC_E("ADC3", NULL, TAIKO_A_TX_3_4_EN, 7, 0,
 			   taiko_codec_enable_adc,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
@@ -6928,6 +6902,11 @@ static struct regulator *taiko_codec_find_regulator(struct snd_soc_codec *codec,
 	return NULL;
 }
 
+#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
+struct snd_soc_codec *fauxsound_codec_ptr;
+EXPORT_SYMBOL(fauxsound_codec_ptr);
+#endif
+
 static int taiko_codec_probe(struct snd_soc_codec *codec)
 {
 	struct wcd9xxx *control;
@@ -6943,6 +6922,11 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	void *ptr = NULL;
 	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
 	struct wcd9xxx_core_resource *core_res;
+
+#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
+	pr_info("taiko codec probe...\n");
+	fauxsound_codec_ptr = codec;
+#endif
 
 	codec->control_data = dev_get_drvdata(codec->dev->parent);
 	control = codec->control_data;

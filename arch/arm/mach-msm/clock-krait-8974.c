@@ -21,7 +21,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/of.h>
 #include <linux/cpumask.h>
-#include <linux/cpufreq.h>
 
 #ifdef CONFIG_CPU_VOLTAGE_TABLE
 #include <linux/cpufreq.h>
@@ -607,21 +606,6 @@ module_param_string(table_name, table_name, sizeof(table_name), S_IRUGO);
 static unsigned int pvs_config_ver;
 module_param(pvs_config_ver, uint, S_IRUGO);
 
-<<<<<<< HEAD
-#ifdef CONFIG_MSM_CPU_VOLTAGE_CONTROL
-#define CPU_VDD_MAX	1150
-#define CPU_VDD_MIN	675
-
-extern int use_for_scaling(unsigned int freq);
-static unsigned int cnt;
-
-ssize_t show_UV_mV_table(struct cpufreq_policy *policy,
-			 char *buf)
-{
-	int i, freq, len = 0;
-	unsigned int cpu = 0;
-	unsigned int num_levels = cpu_clk[cpu]->vdd_class->num_levels;
-=======
 #ifdef CONFIG_CPU_VOLTAGE_TABLE
 
 #define CPU_VDD_MIN	 600
@@ -638,41 +622,10 @@ ssize_t show_UV_mV_table(struct cpufreq_policy *policy, char *buf)
 	/* sanity checks */
 	if (num_levels < 0)
 		return -EINVAL;
->>>>>>> 2b266ba... Voltage Control: generic voltage control for DTS based kernels
 
 	if (!buf)
 		return -EINVAL;
 
-<<<<<<< HEAD
-	for (i = 0; i < num_levels; i++) {
-		freq = use_for_scaling(cpu_clk[cpu]->fmax[i] / 1000);
-		if (freq < 0)
-			continue;
-
-		len += sprintf(buf + len, "%dmhz: %u mV\n", freq / 1000,
-			       cpu_clk[cpu]->vdd_class->vdd_uv[i] / 1000);
-	}
-
-	return len;
-}
-
-ssize_t store_UV_mV_table(struct cpufreq_policy *policy,
-			  char *buf, size_t count)
-{
-	int i, j;
-	int ret = 0;
-	unsigned int val, cpu = 0;
-	unsigned int num_levels = cpu_clk[cpu]->vdd_class->num_levels;
-	char size_cur[4];
-
-	if (cnt) {
-		cnt = 0;
-		return -EINVAL;
-	}
-
-	for (i = 0; i < num_levels; i++) {
-		if (use_for_scaling(cpu_clk[cpu]->fmax[i] / 1000) < 0)
-=======
 	/* format UV_mv table */
 	for (i = 0; i < num_levels; i++) {
 		/* show only those used in scaling */
@@ -701,27 +654,12 @@ ssize_t store_UV_mV_table(struct cpufreq_policy *policy, char *buf,
 
 	for (i = 0; i < num_levels; i++) {
 		if (!is_used_by_scaling(cpu_clk[0]->fmax[i] / 1000))
->>>>>>> 2b266ba... Voltage Control: generic voltage control for DTS based kernels
 			continue;
 
 		ret = sscanf(buf, "%u", &val);
 		if (!ret)
 			return -EINVAL;
 
-<<<<<<< HEAD
-		if (val > CPU_VDD_MAX)
-			val = CPU_VDD_MAX;
-		else if (val < CPU_VDD_MIN)
-			val = CPU_VDD_MIN;
-
-		for (j = 0; j < NR_CPUS; j++)
-			cpu_clk[j]->vdd_class->vdd_uv[i] = val * 1000;
-
-		ret = sscanf(buf, "%s", size_cur);
-		cnt = strlen(size_cur);
-		buf += cnt + 1;
-	}
-=======
 		/* bounds check */
 		val = min( max((unsigned int)val, (unsigned int)CPU_VDD_MIN),
 			(unsigned int)CPU_VDD_MAX);
@@ -735,7 +673,6 @@ ssize_t store_UV_mV_table(struct cpufreq_policy *policy, char *buf,
 		buf += strlen(size_cur) + 1;
 	}
 	pr_warn("faux123: user voltage table modified!\n");
->>>>>>> 2b266ba... Voltage Control: generic voltage control for DTS based kernels
 
 	return ret;
 }
@@ -746,9 +683,9 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct clk *c;
 	int speed, pvs, pvs_ver, config_ver, rows, cpu;
-	unsigned long *freq = 0, cur_rate, aux_rate;
-	int *uv = 0, *ua = 0;
-	u32 *dscr = 0, vco_mask, config_val;
+	unsigned long *freq, cur_rate, aux_rate;
+	int *uv, *ua;
+	u32 *dscr, vco_mask, config_val;
 	int ret;
 
 	vdd_l2.regulator[0] = devm_regulator_get(dev, "l2-dig");
